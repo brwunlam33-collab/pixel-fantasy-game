@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>مغامرة الهيكل العظمي - Pixel Fantasy</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+        }
+        body {
+            background: #0a0a12;
+            color: #e0d0a0;
+            font-family: 'Courier New', monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+            touch-action: none;
+        }
+        #game-container {
+            position: relative;
+            width: 100%;
+            max-width: 400px;
+            aspect-ratio: 9/16;
+            background: #111;
+            border: 4px solid #4a3a2a;
+            box-shadow: 0 0 30px rgba(100, 50, 20, 0.5);
+            overflow: hidden;
+        }
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+            image-rendering: pixelated;
+        }
+        #ui {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 12px;
+        }
+        .hud {
+            background: rgba(0,0,0,0.7);
+            border: 2px solid #8b6914;
+            padding: 8px 12px;
+            font-size: 14px;
+            text-align: center;
+        }
+        #health-bar {
+            height: 12px;
+            background: #333;
+            border: 2px solid #8b6914;
+            margin-top: 6px;
+        }
+        #health-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #c22, #f44);
+            width: 100%;
+            transition: width 0.3s;
+        }
+        #enemy-health {
+            height: 8px;
+            background: #333;
+            border: 1px solid #666;
+            margin-top: 4px;
+        }
+        #enemy-fill {
+            height: 100%;
+            background: #4a4;
+            width: 100%;
+            transition: width 0.2s;
+        }
+        #controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            pointer-events: auto;
+        }
+        button {
+            background: #3a2a1a;
+            border: 3px solid #8b6914;
+            color: #e0d0a0;
+            padding: 12px 20px;
+            font-family: inherit;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            text-transform: uppercase;
+            image-rendering: pixelated;
+            box-shadow: 0 4px 0 #1a1008;
+            transition: all 0.1s;
+        }
+        button:active {
+            transform: translateY(3px);
+            box-shadow: 0 1px 0 #1a1008;
+        }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        #message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.85);
+            border: 3px solid #8b6914;
+            padding: 20px;
+            text-align: center;
+            font-size: 18px;
+            max-width: 80%;
+            display: none;
+            z-index: 10;
+        }
+        #start-screen, #game-over {
+            position: absolute;
+            inset: 0;
+            background: rgba(10,5,0,0.92);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 20px;
+            z-index: 20;
+        }
+        h1 {
+            font-size: 28px;
+            color: #d4a017;
+            text-shadow: 3px 3px 0 #000;
+            margin-bottom: 15px;
+            letter-spacing: 2px;
+        }
+        p {
+            margin: 10px 0;
+            line-height: 1.5;
+            font-size: 14px;
+        }
+        .pixel-title {
+            font-size: 22px;
+            color: #c9a227;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="gameCanvas" width="292" height="542"></canvas>
+        <div id="ui">
+            <div class="hud">
+                <div>❤️ صحة البطل: <span id="player-hp">100</span></div>
+                <div id="health-bar"><div id="health-fill"></div></div>
+                <div style="margin-top:8px; font-size:12px;">💀 صحة الهيكل: <span id="enemy-hp">80</span></div>
+                <div id="enemy-health"><div id="enemy-fill"></div></div>
+            </div>
+            <div id="controls">
+                <button id="attack-btn">⚔️ هجوم</button>
+                <button id="magic-btn">✨ سحر</button>
+                <button id="next-btn" style="display:none;">➡️ التالي</button>
+            </div>
+        </div>
+        <div id="message"></div>
+        <div id="start-screen">
+            <h1>🏰 مغامرة الهيكل</h1>
+            <p class="pixel-title">Pixel Fantasy Adventure</p>
+            <p>أنت فارس في عالم مظلم مليء بالقلاع والهياكل العظمية.</p>
+            <p>استخدم السيف أو السحر لمحاربة الأعداء!</p>
+            <br>
+            <button id="start-btn">ابدأ المغامرة</button>
+        </div>
+        <div id="game-over" style="display:none;">
+            <h1 id="end-title">انتهت المغامرة</h1>
+            <p id="end-msg"></p>
+            <button id="restart-btn">العب مرة أخرى</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        ctx.imageSmoothingEnabled = false;
+
+        let playerHP = 100;
+        let enemyHP = 80;
+        let scene = 0;
+        let isAttacking = false;
+        let gameStarted = false;
+        let enemyAlive = true;
+        let magicCooldown = 0;
+
+        const scenes = [
+            { name: "القلعة عند الغروب", bg: drawCastleSunset },
+            { name: "الهيكل يهاجم", bg: drawSkeletonFight },
+            { name: "القلعة المظلمة", bg: drawDarkFortress },
+            { name: "زنزانة السحر", bg: drawDungeonStaff },
+            { name: "المنزل المسكون", bg: drawHauntedHouse }
+        ];
+
+        function drawCastleSunset() {
+            const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            grad.addColorStop(0, '#2a1a3a');
+            grad.addColorStop(0.4, '#8b4513');
+            grad.addColorStop(0.7, '#d2691e');
+            grad.addColorStop(1, '#1a0a0a');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.fillStyle = '#2a1a2a';
+            ctx.beginPath();
+            ctx.moveTo(0, 300);
+            ctx.lineTo(80, 180);
+            ctx.lineTo(160, 250);
+            ctx.lineTo(240, 150);
+            ctx.lineTo(292, 220);
+            ctx.lineTo(292, 542);
+            ctx.lineTo(0, 542);
+            ctx.fill();
+
+            ctx.fillStyle = '#1a1520';
+            ctx.fillRect(40, 120, 120, 200);
+            ctx.fillRect(140, 60, 40, 260);
+            for (let i = 0; i < 5; i++) {
+                ctx.fillRect(40 + i * 25, 110, 15, 15);
+            }
+            ctx.fillRect(140, 50, 40, 15);
+            ctx.fillStyle = '#ffaa33';
+            ctx.fillRect(60, 160, 12, 18);
+            ctx.fillRect(100, 160, 12, 18);
+            ctx.fillRect(155, 90, 10, 14);
+            ctx.fillRect(155, 140, 10, 14);
+
+            ctx.fillStyle = '#3a2a1a';
+            ctx.fillRect(0, 400, 292, 142);
+            ctx.fillStyle = '#2a1a0a';
+            for (let y = 410; y < 530; y += 20) {
+                for (let x = 10; x < 280; x += 30) {
+                    ctx.fillRect(x + (y % 40 === 0 ? 0 : 15), y, 20, 12);
+                }
+            }
+        }
+
+        function drawSkeletonFight() {
+            drawCastleSunset();
+            ctx.fillStyle = '#d4c4a0';
+            ctx.fillRect(120, 280, 30, 35);
+            ctx.fillStyle = '#000';
+            ctx.fillRect(126, 290, 6, 8);
+            ctx.fillRect(140, 290, 6, 8);
+            ctx.fillStyle = '#d4c4a0';
+            ctx.fillRect(125, 315, 20, 50);
+            ctx.fillRect(100, 320, 25, 8);
+            ctx.fillRect(145, 320, 25, 8);
+            ctx.fillRect(125, 365, 8, 40);
+            ctx.fillRect(137, 365, 8, 40);
+            ctx.fillStyle = '#8b6914';
+            ctx.fillRect(95, 250, 4, 100);
+            ctx.fillStyle = '#aaa';
+            ctx.beginPath();
+            ctx.moveTo(97, 245);
+            ctx.lineTo(90, 260);
+            ctx.lineTo(104, 260);
+            ctx.fill();
+        }
+
+        function drawDarkFortress() {
+            const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            grad.addColorStop(0, '#1a0000');
+            grad.addColorStop(0.5, '#4a0000');
+            grad.addColorStop(1, '#1a0505');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.fillStyle = '#0a0a12';
+            const towers = [30, 70, 110, 150, 190, 230];
+            towers.forEach((x, i) => {
+                const h = 180 + Math.sin(i) * 40 + 80;
+                ctx.fillRect(x, 400 - h, 35, h);
+                ctx.beginPath();
+                ctx.moveTo(x + 17, 400 - h - 40);
+                ctx.lineTo(x, 400 - h);
+                ctx.lineTo(x + 35, 400 - h);
+                ctx.fill();
+            });
+
+            ctx.fillStyle = '#2a2a2a';
+            ctx.beginPath();
+            ctx.moveTo(0, 350);
+            ctx.lineTo(100, 280);
+            ctx.lineTo(180, 320);
+            ctx.lineTo(292, 250);
+            ctx.lineTo(292, 542);
+            ctx.lineTo(0, 542);
+            ctx.fill();
+
+            ctx.fillStyle = '#050505';
+            ctx.beginPath();
+            ctx.ellipse(80, 380, 50, 40, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = '#ff4400';
+            ctx.fillRect(20, 420, 60, 8);
+            ctx.fillStyle = '#ffaa00';
+            ctx.fillRect(30, 418, 40, 4);
+        }
+
+        function drawDungeonStaff() {
+            ctx.fillStyle = '#1a2a2a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.fillStyle = '#0a1515';
+            for (let i = 0; i < 3; i++) {
+                ctx.beginPath();
+                ctx.ellipse(146, 150 + i * 120, 100 - i * 20, 80 - i * 15, 0, Math.PI, 0);
+                ctx.fill();
+            }
+
+            ctx.fillStyle = '#2a3a3a';
+            for (let i = 0; i < 8; i++) {
+                ctx.fillRect(80 - i * 5, 350 + i * 20, 130 + i * 10, 18);
+            }
+
+            ctx.fillStyle = '#ffaa44';
+            ctx.beginPath();
+            ctx.arc(146, 120, 30, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = 'rgba(255,170,60,0.3)';
+            ctx.beginPath();
+            ctx.arc(146, 120, 60, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = '#0f1a1a';
+            ctx.fillRect(0, 480, 292, 62);
+        }
+
+        function drawHauntedHouse() {
+            const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            grad.addColorStop(0, '#1a0a2a');
+            grad.addColorStop(0.4, '#4a1a3a');
+            grad.addColorStop(0.7, '#8b3a2a');
+            grad.addColorStop(1, '#2a1a1a');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.fillStyle = '#1a0a15';
+            ctx.fillRect(50, 180, 190, 200);
+            ctx.beginPath();
+            ctx.moveTo(40, 180);
+            ctx.lineTo(145, 80);
+            ctx.lineTo(250, 180);
+            ctx.fill();
+            ctx.fillRect(50, 100, 50, 100);
+            ctx.beginPath();
+            ctx.moveTo(45, 100);
+            ctx.lineTo(75, 40);
+            ctx.lineTo(105, 100);
+            ctx.fill();
+            ctx.fillStyle = '#3a1a2a';
+            ctx.fillRect(80, 220, 25, 35);
+            ctx.fillRect(140, 220, 25, 35);
+            ctx.fillRect(180, 220, 25, 35);
+            ctx.fillStyle = '#0a0508';
+            ctx.fillRect(120, 300, 40, 80);
+            ctx.fillStyle = '#2a1a1a';
+            for (let i = 0; i < 5; i++) {
+                ctx.fillRect(100 - i * 5, 380 + i * 12, 80 + i * 10, 12);
+            }
+
+            ctx.fillStyle = '#1a0a0a';
+            ctx.fillRect(0, 450, 292, 92);
+            ctx.fillStyle = '#2a1a0a';
+            for (let x = 0; x < 292; x += 8) {
+                ctx.fillRect(x, 440 + Math.random() * 10, 4, 15);
+            }
+        }
+
+        function drawPlayerWeapon(weapon = 'sword') {
+            if (weapon === 'sword') {
+                ctx.fillStyle = '#c9a07a';
+                ctx.fillRect(200, 420, 40, 50);
+                ctx.fillRect(205, 410, 8, 15);
+                ctx.fillRect(215, 408, 8, 17);
+                ctx.fillRect(225, 410, 8, 15);
+                ctx.fillStyle = '#8b6914';
+                ctx.fillRect(200, 460, 40, 12);
+                ctx.fillStyle = '#c0c0c0';
+                ctx.fillRect(230, 200, 18, 230);
+                ctx.fillStyle = '#e8e8e8';
+                ctx.fillRect(233, 200, 6, 220);
+                ctx.fillStyle = '#5a3a1a';
+                ctx.fillRect(220, 420, 40, 15);
+                ctx.fillStyle = '#8b6914';
+                ctx.fillRect(215, 410, 50, 12);
+                ctx.fillStyle = '#4a2a0a';
+                ctx.fillRect(235, 455, 12, 20);
+            } else if (weapon === 'staff') {
+                ctx.fillStyle = '#c9a07a';
+                ctx.fillRect(180, 400, 35, 50);
+                ctx.fillStyle = '#5a3a1a';
+                ctx.fillRect(190, 250, 12, 180);
+                ctx.fillStyle = '#00aaff';
+                ctx.beginPath();
+                ctx.arc(196, 230, 25, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#88ddff';
+                ctx.beginPath();
+                ctx.arc(190, 220, 10, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = 'rgba(0,170,255,0.3)';
+                ctx.beginPath();
+                ctx.arc(196, 230, 40, 0, Math.PI * 2);
+                ctx.fill();
+            } else if (weapon === 'dagger') {
+                ctx.fillStyle = '#c9a07a';
+                ctx.fillRect(210, 430, 35, 45);
+                ctx.fillStyle = '#a0a0b0';
+                ctx.fillRect(220, 280, 12, 160);
+                ctx.fillStyle = '#4a2a1a';
+                ctx.fillRect(215, 430, 22, 20);
+            }
+        }
+
+        function drawBlueOrb() {
+            ctx.fillStyle = '#c9a07a';
+            ctx.fillRect(40, 430, 40, 45);
+            ctx.fillStyle = '#00ccff';
+            ctx.beginPath();
+            ctx.arc(60, 400, 22, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#aaffff';
+            ctx.beginPath();
+            ctx.arc(55, 390, 8, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = 'rgba(100,200,255,0.6)';
+            for (let i = 0; i < 5; i++) {
+                const angle = Date.now() / 200 + i;
+                ctx.beginPath();
+                ctx.arc(60 + Math.cos(angle) * 30, 400 + Math.sin(angle) * 30, 3, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        function render() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            if (scenes[scene]) {
+                scenes[scene].bg();
+            }
+            if (scene === 3) {
+                drawPlayerWeapon('staff');
+            } else if (scene === 4) {
+                drawPlayerWeapon('dagger');
+            } else {
+                drawPlayerWeapon('sword');
+                if (scene < 2) drawBlueOrb();
+            }
+            if (isAttacking) {
+                ctx.fillStyle = 'rgba(255,255,200,0.4)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.strokeStyle = '#ffffaa';
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.moveTo(180, 300);
+                ctx.lineTo(100, 380);
+                ctx.stroke();
+            }
+        }
+
+        function updateUI() {
+            document.getElementById('player-hp').textContent = playerHP;
+            document.getElementById('health-fill').style.width = playerHP + '%';
+            document.getElementById('enemy-hp').textContent = Math.max(0, enemyHP);
+            document.getElementById('enemy-fill').style.width = Math.max(0, enemyHP) / 80 * 100 + '%';
+        }
+
+        function showMessage(text, duration = 1500) {
+            const msg = document.getElementById('message');
+            msg.textContent = text;
+            msg.style.display = 'block';
+            setTimeout(() => msg.style.display = 'none', duration);
+        }
+
+        function attack() {
+            if (!gameStarted || !enemyAlive || isAttacking) return;
+            isAttacking = true;
+            const dmg = 15 + Math.floor(Math.random() * 10);
+            enemyHP -= dmg;
+            showMessage(`⚔️ ضربة قوية! -${dmg}`);
+            setTimeout(() => {
+                isAttacking = false;
+                if (enemyHP <= 0) {
+                    enemyAlive = false;
+                    showMessage('💀 الهيكل سقط!');
+                    document.getElementById('attack-btn').disabled = true;
+                    document.getElementById('magic-btn').disabled = true;
+                    document.getElementById('next-btn').style.display = 'inline-block';
+                } else {
+                    setTimeout(() => {
+                        const edmg = 8 + Math.floor(Math.random() * 12);
+                        playerHP -= edmg;
+                        showMessage(`💥 الهيكل يرد! -${edmg}`);
+                        updateUI();
+                        if (playerHP <= 0) {
+                            endGame(false);
+                        }
+                    }, 600);
+                }
+                updateUI();
+                render();
+            }, 300);
+            render();
+        }
+
+        function castMagic() {
+            if (!gameStarted || !enemyAlive || magicCooldown > 0) return;
+            magicCooldown = 3;
+            const dmg = 25 + Math.floor(Math.random() * 15);
+            enemyHP -= dmg;
+            showMessage(`✨ كرة سحرية! -${dmg}`);
+            ctx.fillStyle = 'rgba(0,150,255,0.5)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            setTimeout(() => {
+                if (enemyHP <= 0) {
+                    enemyAlive = false;
+                    showMessage('💀 الهيكل سقط بالسحر!');
+                    document.getElementById('attack-btn').disabled = true;
+                    document.getElementById('magic-btn').disabled = true;
+                    document.getElementById('next-btn').style.display = 'inline-block';
+                } else {
+                    setTimeout(() => {
+                        const edmg = 5 + Math.floor(Math.random() * 8);
+                        playerHP -= edmg;
+                        showMessage(`💥 الهيكل يرد! -${edmg}`);
+                        updateUI();
+                        if (playerHP <= 0) endGame(false);
+                    }, 400);
+                }
+                updateUI();
+                render();
+            }, 400);
+            const btn = document.getElementById('magic-btn');
+            btn.disabled = true;
+            let cd = 3;
+            const interval = setInterval(() => {
+                cd--;
+                btn.textContent = `✨ (${cd})`;
+                if (cd <= 0) {
+                    clearInterval(interval);
+                    btn.textContent = '✨ سحر';
+                    btn.disabled = false;
+                    magicCooldown = 0;
+                }
+            }, 1000);
+            render();
+        }
+
+        function nextScene() {
+            scene++;
+            if (scene >= scenes.length) {
+                endGame(true);
+                return;
+            }
+            enemyHP = 60 + scene * 20;
+            enemyAlive = true;
+            playerHP = Math.min(100, playerHP + 20);
+            document.getElementById('attack-btn').disabled = false;
+            document.getElementById('magic-btn').disabled = false;
+            document.getElementById('next-btn').style.display = 'none';
+            showMessage(`📍 ${scenes[scene].name}`);
+            updateUI();
+            render();
+        }
+
+        function endGame(won) {
+            gameStarted = false;
+            document.getElementById('game-over').style.display = 'flex';
+            if (won) {
+                document.getElementById('end-title').textContent = '🏆 انتصار!';
+                document.getElementById('end-msg').textContent = 'لقد هزمت كل الأعداء واستكشفت العالم المظلم! أنت بطل حقيقي.';
+            } else {
+                document.getElementById('end-title').textContent = '💀 هزيمة';
+                document.getElementById('end-msg').textContent = 'سقطت في المعركة... لكن الأبطال لا يستسلمون! جرب مرة أخرى.';
+            }
+        }
+
+        function startGame() {
+            document.getElementById('start-screen').style.display = 'none';
+            gameStarted = true;
+            playerHP = 100;
+            enemyHP = 80;
+            scene = 0;
+            enemyAlive = true;
+            updateUI();
+            showMessage('⚔️ واجه الهيكل!');
+            render();
+        }
+
+        function restart() {
+            document.getElementById('game-over').style.display = 'none';
+            document.getElementById('start-screen').style.display = 'flex';
+            scene = 0;
+            playerHP = 100;
+            enemyHP = 80;
+            enemyAlive = true;
+            document.getElementById('attack-btn').disabled = false;
+            document.getElementById('magic-btn').disabled = false;
+            document.getElementById('next-btn').style.display = 'none';
+        }
+
+        document.getElementById('start-btn').addEventListener('click', startGame);
+        document.getElementById('attack-btn').addEventListener('click', attack);
+        document.getElementById('magic-btn').addEventListener('click', castMagic);
+        document.getElementById('next-btn').addEventListener('click', nextScene);
+        document.getElementById('restart-btn').addEventListener('click', restart);
+
+        canvas.addEventListener('click', () => {
+            if (gameStarted && enemyAlive) attack();
+        });
+
+        render();
+        setInterval(() => {
+            if (gameStarted) render();
+        }, 100);
+    </script>
+</body>
+</html>
